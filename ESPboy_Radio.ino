@@ -1,16 +1,16 @@
+#include <Adafruit_NeoPixel.h>
 #include <Adafruit_MCP23017.h>
+#include <Adafruit_ST7735.h>
+#include <Adafruit_GFX.h>
+#include <ESP8266WiFi.h> 
 #include <radio.h>
 #include <SI4703.h>
 #include <RDSParser.h>
-#include <Adafruit_ST7735.h>
-#include <Adafruit_GFX.h> 
-#include <Adafruit_NeoPixel.h>
-#include <ESP8266WiFi.h>
 #include "ESPboyLogo.h"
 #include <ESP_EEPROM.h>
 
 #define LEDquantity 1
-#define MCP23017address 0x27 //!!!! if your TFT and buttons does not work please check this address!!!! it could be from 0x20 to 0x27
+#define MCP23017address 0 //actually it's 0x20 but in <Adafruit_MCP23017.h> there is (x|0x20)
 
 //PINS
 #define LEDpin            D4
@@ -19,6 +19,7 @@
 #define radioSDApin       SDA 
 #define radioRESETpin     3
 
+//buttons
 #define UP_BUTTON       1
 #define DOWN_BUTTON     2
 #define LEFT_BUTTON     0
@@ -31,7 +32,7 @@
 #define TFT_DC        D8
 #define TFT_CS        -1
 
-uint8_t buttonspressed[6];
+uint8_t buttonspressed[8];
 char servicename[32];
 
 struct ESP_EEPROM{
@@ -219,7 +220,30 @@ void esp_eeprom_load(){
 
 void setup() {
   Serial.begin(9600);
+  delay (100);
   WiFi.mode(WIFI_OFF); // to safe some battery power
+
+//LED init
+  pinMode(LEDpin, OUTPUT);
+  pixels.begin();
+  delay(100);
+  pixels.setPixelColor(0, pixels.Color(0,0,0));
+  pixels.show();
+
+//TFT init     
+  mcp.pinMode(csTFTMCP23017pin, OUTPUT);
+  mcp.digitalWrite(csTFTMCP23017pin, LOW);
+  tft.initR(INITR_144GREENTAB);
+  delay (100);
+  tft.setRotation(0);
+  tft.fillScreen(ST77XX_BLACK);
+  
+//draw ESPboylogo  
+  tft.drawXBitmap(30, 24, ESPboyLogo, 68, 64, ST77XX_YELLOW);
+  tft.setTextSize(1);
+  tft.setTextColor(ST77XX_YELLOW);
+  tft.setCursor(42,102);
+  tft.print ("FM radio");
 
 //reset radio module
   pinMode (radioRESETpin, OUTPUT);
@@ -231,51 +255,26 @@ void setup() {
 //global vars init
   memset(buttonspressed, 0, sizeof(buttonspressed));
   memset(servicename, 0, sizeof(servicename));
-
-//LED init
-  pinMode(LEDpin, OUTPUT);
-  pixels.begin();
-  delay(100);
-  pixels.setPixelColor(0, pixels.Color(0,0,0));
-  pixels.show();
-  
   
 //sound init and test
   pinMode(SOUNDpin, OUTPUT);
-  tone(SOUNDpin, 200);
-  delay(100);  
-  tone(SOUNDpin, 100);
-  delay(100);
+  tone(SOUNDpin, 200, 100);
+  tone(SOUNDpin, 100, 100);
   noTone(SOUNDpin);
   
 //buttons on mcp23017 init
   mcp.begin(MCP23017address);
+  delay (100);
   for (int i=0;i<6;i++){  
      mcp.pinMode(i, INPUT);
      mcp.pullUp(i, HIGH);}
-
-//TFT init     
-  mcp.pinMode(csTFTMCP23017pin, OUTPUT);
-  mcp.digitalWrite(csTFTMCP23017pin, LOW);
-  tft.initR(INITR_144GREENTAB);
-  tft.setRotation(0);
-  tft.fillScreen(ST77XX_BLACK);
-  
-//draw ESPboylogo  
-  delay(500);
-  tft.drawXBitmap(30, 24, ESPboyLogo, 68, 64, ST77XX_YELLOW);
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_YELLOW);
-  tft.setCursor(0,102);
-  tft.print ("       FM radio");
-  delay(2500);
   
 //BAT voltage measure init
   pinMode(A0, INPUT);
 
 //radio init  
   radio.init();
-  delay(50);
+  delay (100);
   radio.attachReceiveRDS(RDS_process);
   rds.attachServicenNameCallback(DisplayServiceName);
   rds.attachTimeCallback(DisplayTime);
@@ -283,6 +282,10 @@ void setup() {
 //load last radio state from eeprom
   EEPROM.begin(sizeof (esp_eeprom));
   esp_eeprom_load();
+
+//clear TFT
+  delay(2000);
+  tft.fillScreen(ST77XX_BLACK);
 
 //draw radio desktop
   redrawtft();
