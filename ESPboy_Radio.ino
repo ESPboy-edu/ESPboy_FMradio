@@ -259,7 +259,9 @@ void setup() {
 //sound init and test
   pinMode(SOUNDpin, OUTPUT);
   tone(SOUNDpin, 200, 100);
+  delay(100);
   tone(SOUNDpin, 100, 100);
+  delay(100);
   noTone(SOUNDpin);
   
 //buttons on mcp23017 init
