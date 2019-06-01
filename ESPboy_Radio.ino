@@ -230,6 +230,13 @@ void setup() {
   pixels.setPixelColor(0, pixels.Color(0,0,0));
   pixels.show();
 
+//buttons on mcp23017 init
+  mcp.begin(MCP23017address);
+  delay (100);
+  for (int i=0;i<6;i++){  
+     mcp.pinMode(i, INPUT);
+     mcp.pullUp(i, HIGH);}
+
 //TFT init     
   mcp.pinMode(csTFTMCP23017pin, OUTPUT);
   mcp.digitalWrite(csTFTMCP23017pin, LOW);
@@ -263,13 +270,6 @@ void setup() {
   tone(SOUNDpin, 100, 100);
   delay(100);
   noTone(SOUNDpin);
-  
-//buttons on mcp23017 init
-  mcp.begin(MCP23017address);
-  delay (100);
-  for (int i=0;i<6;i++){  
-     mcp.pinMode(i, INPUT);
-     mcp.pullUp(i, HIGH);}
   
 //BAT voltage measure init
   pinMode(A0, INPUT);
