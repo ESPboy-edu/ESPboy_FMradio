@@ -33,7 +33,7 @@
 #define TFT_CS        -1
 
 uint8_t buttonspressed[8];
-char servicename[10];
+char servicename[32];
 
 struct ESP_EEPROM{
   uint16_t freq;
@@ -60,6 +60,7 @@ void RDS_process(uint16_t block1, uint16_t block2, uint16_t block3, uint16_t blo
 
 void DisplayServiceName(char *name){
   if (name[0]){
+    name[10]=0;
     tft.fillRect(0, 58, 128, 16, ST77XX_BLACK);
     tft.setTextSize(2);
     tft.setTextColor(ST77XX_RED);
