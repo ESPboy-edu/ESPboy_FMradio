@@ -33,7 +33,6 @@
 #define TFT_CS        -1
 
 uint8_t buttonspressed[8];
-char servicename[32];
 
 struct ESP_EEPROM{
   uint16_t freq;
@@ -60,7 +59,6 @@ void RDS_process(uint16_t block1, uint16_t block2, uint16_t block3, uint16_t blo
 
 void DisplayServiceName(char *name){
   if (name[0]){
-    name[10]=0;
     tft.fillRect(0, 58, 128, 16, ST77XX_BLACK);
     tft.setTextSize(2);
     tft.setTextColor(ST77XX_RED);
@@ -139,7 +137,6 @@ void redrawtft(){
    tft.print ("RSSI "); tft.print (radioinfo.rssi);
 //draw RDS
    radio.checkRDS();
-   DisplayServiceName(&servicename[0]);
 //draw bat
    batVoltageDraw();
 }
@@ -258,7 +255,6 @@ void setup() {
 
 //global vars init
   memset(buttonspressed, 0, sizeof(buttonspressed));
-  memset(servicename, 0, sizeof(servicename));
   
 //sound init and test
   pinMode(SOUNDpin, OUTPUT);
@@ -297,7 +293,6 @@ void loop() {
   if (checkbuttons()) runButtonsCommand();
   if (millis() > (counter + 2000)){
      counter = millis();
-     DisplayServiceName(&servicename[0]);
      batVoltageDraw();    
      if (esp_eeprom_needsaving){
         esp_eeprom_save();
