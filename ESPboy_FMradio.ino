@@ -1,13 +1,13 @@
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_MCP23017.h>
-#include <Adafruit_ST7735.h>
-#include <Adafruit_GFX.h>
+#include <TFT_eSPI.h>
 #include <ESP8266WiFi.h> 
 #include <radio.h>
 #include <SI4703.h>
 #include <RDSParser.h>
 #include "ESPboyLogo.h"
 #include <ESP_EEPROM.h>
+#include "ESPboyOTA.h"
 
 #define LEDquantity 1
 #define MCP23017address 0 //actually it's 0x20 but in <Adafruit_MCP23017.h> there is (x|0x20)
@@ -19,20 +19,17 @@
 #define radioSDApin       SDA 
 #define radioRESETpin     3
 
-//buttons
-#define UP_BUTTON       1
-#define DOWN_BUTTON     2
-#define LEFT_BUTTON     0
-#define RIGHT_BUTTON    3
-#define ACT_BUTTON      4
-#define ESC_BUTTON      5
 
-//SPI for LCD
-#define TFT_RST       -1
-#define TFT_DC        D8
-#define TFT_CS        -1
+#define PAD_LEFT        0x01
+#define PAD_UP          0x02
+#define PAD_DOWN        0x04
+#define PAD_RIGHT       0x08
+#define PAD_ACT         0x10
+#define PAD_ESC         0x20
+#define PAD_LFT         0x40
+#define PAD_RGT         0x80
+#define PAD_ANY         0xff
 
-uint8_t buttonspressed[8];
 
 struct ESP_EEPROM{
   uint16_t freq;
@@ -43,14 +40,17 @@ struct ESP_EEPROM{
 
 ESP_EEPROM esp_eeprom;
 static uint8_t esp_eeprom_needsaving = 0;
-
+TFT_eSPI tft = TFT_eSPI();
 Adafruit_MCP23017 mcp;
 SI4703 radio(radioSDApin, radioRESETpin);    
 RDSParser rds;
 RADIO_INFO radioinfo;
-Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(LEDquantity, LEDpin, NEO_GRB + NEO_KHZ800);
 
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(LEDquantity, LEDpin, NEO_GRB + NEO_KHZ800);
+ESPboyOTA* OTAobj = NULL;
+
+
+uint8_t getKeys() { return (~mcp.readGPIOAB() & 255); }
 
 void RDS_process(uint16_t block1, uint16_t block2, uint16_t block3, uint16_t block4) {
   rds.processData(block1, block2, block3, block4);
@@ -59,9 +59,9 @@ void RDS_process(uint16_t block1, uint16_t block2, uint16_t block3, uint16_t blo
 
 void DisplayServiceName(char *name){
   if (name[0]){
-    tft.fillRect(0, 58, 128, 16, ST77XX_BLACK);
+    tft.fillRect(0, 58, 128, 16, TFT_BLACK);
     tft.setTextSize(2);
-    tft.setTextColor(ST77XX_RED);
+    tft.setTextColor(TFT_RED);
     tft.setCursor((128-strlen(name)*12)/2, 58);
     tft.print(name);
   }
@@ -72,9 +72,9 @@ void batVoltageDraw(){
   uint16_t volt;
   volt = analogRead(A0);
   volt = map(volt, 820, 1024, 0, 100);
-  tft.fillRect(75, 120, 128-75, 8, ST77XX_BLACK);
+  tft.fillRect(75, 120, 128-75, 8, TFT_BLACK);
   tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE);
+  tft.setTextColor(TFT_WHITE);
   tft.setCursor(75, 120);
   tft.print("Bat ");
   tft.print(volt);
@@ -84,9 +84,9 @@ void batVoltageDraw(){
 
 
 void DisplayTime(uint8_t hour, uint8_t minute) {
-  tft.fillRect(0, 14, 128, 10, ST77XX_BLACK),
+  tft.fillRect(0, 14, 128, 10, TFT_BLACK),
   tft.setTextSize(1);
-  tft.setTextColor(ST77XX_YELLOW);
+  tft.setTextColor(TFT_YELLOW);
   tft.setCursor(50, 14); 
   if (hour < 10) tft.print('0');
   tft.print(hour);
@@ -100,7 +100,7 @@ void redrawtft(){
  uint8_t part1freq, part2freq;
  uint16_t freq;
 //clear TFT
-  tft.fillScreen(ST77XX_BLACK);
+  tft.fillScreen(TFT_BLACK);
 //draw ESPboy radio
   tft.setTextSize(1);
   tft.setTextColor( 0x2222);
@@ -108,7 +108,7 @@ void redrawtft(){
   tft.print("ESPboy FM radio v1");
 //draw freq
   tft.setTextSize(3);
-  tft.setTextColor(ST77XX_GREEN);
+  tft.setTextColor(TFT_GREEN);
   freq = radio.getFrequency();
   part1freq = radio.getFrequency()/100;
   part2freq = freq - part1freq * 100;
@@ -121,7 +121,7 @@ void redrawtft(){
   tft.print(part2freq); 
 //draw Vol
   tft.setTextSize(1);
-  tft.setTextColor(ST77XX_YELLOW);
+  tft.setTextColor(TFT_YELLOW);
   tft.setCursor(0, 80);
   tft.print("Vol ");
   for (int i=0; i<radio.getVolume(); i++) tft.print("|");
@@ -143,25 +143,12 @@ void redrawtft(){
 
 
 
-uint8_t checkbuttons(){
-  uint8_t check = 0;
-  for (int i = 0; i < 6; i++){
-    if(!mcp.digitalRead(i)) { 
-       buttonspressed[i] = 1; 
-       check++;
-       delay(10);} // to avoid i2c bus ovelflow during long button keeping pressed
-    else buttonspressed[i] = 0;
-  }
-  return (check);
-}
-
-
-void runButtonsCommand(){
+void runButtonsCommand(uint8_t bt){
      esp_eeprom_needsaving++;
      tone (SOUNDpin, 600, 20);
      pixels.setPixelColor(0, pixels.Color(0,0,10));
      pixels.show();
-     if (buttonspressed[RIGHT_BUTTON]) { 
+     if (bt&PAD_RIGHT) { 
          pixels.setPixelColor(0, pixels.Color(10,0,0)); 
          pixels.show(); 
          radio.seekUp(false); 
@@ -170,7 +157,7 @@ void runButtonsCommand(){
          tone (SOUNDpin, 1000, 20);
          delay(200);
          }
-     if (buttonspressed[LEFT_BUTTON]) { 
+     if (bt&PAD_LEFT) { 
          pixels.setPixelColor(0, pixels.Color(10,0,0)); 
          pixels.show(); 
          radio.seekDown(false); 
@@ -178,14 +165,14 @@ void runButtonsCommand(){
          pixels.show(); 
          tone (SOUNDpin, 1000, 20);
          delay(200);}
-     if (buttonspressed[UP_BUTTON]) { if (radio.getVolume() < 15) radio.setVolume(radio.getVolume() + 1); }
-     if (buttonspressed[DOWN_BUTTON]) { if (radio.getVolume() > 0) radio.setVolume(radio.getVolume() - 1); }
-     if (buttonspressed[ACT_BUTTON]) { 
+     if (bt&PAD_UP) { if (radio.getVolume() < 15) radio.setVolume(radio.getVolume() + 1); }
+     if (bt&PAD_DOWN) { if (radio.getVolume() > 0) radio.setVolume(radio.getVolume() - 1); }
+     if (bt&PAD_ACT) { 
          radio.setMono(! radio.getMono()); }
-     if (buttonspressed[ESC_BUTTON]) { 
+     if (bt&PAD_ESC) { 
          radio.setBassBoost(!radio.getBassBoost()); }
      
-     while (checkbuttons());
+     //while (!getKeys());
      delay(200);
      redrawtft(); 
      pixels.setPixelColor(0, pixels.Color(0,0,0));
@@ -224,25 +211,25 @@ void setup() {
   pixels.setPixelColor(0, pixels.Color(0,0,0));
   pixels.show();
 
-//buttons on mcp23017 init
+//MCP23017 init
   mcp.begin(MCP23017address);
-  delay (100);
-  for (int i=0;i<6;i++){  
-     mcp.pinMode(i, INPUT);
-     mcp.pullUp(i, HIGH);}
+  delay(100);
+  for (int i = 0; i < 8; ++i) {
+    mcp.pinMode(i, INPUT);
+    mcp.pullUp(i, HIGH);}
 
 //TFT init     
   mcp.pinMode(csTFTMCP23017pin, OUTPUT);
   mcp.digitalWrite(csTFTMCP23017pin, LOW);
-  tft.initR(INITR_144GREENTAB);
-  delay (100);
+  tft.begin();
+  delay(100);
   tft.setRotation(0);
-  tft.fillScreen(ST77XX_BLACK);
+  tft.fillScreen(TFT_BLACK);
   
 //draw ESPboylogo  
-  tft.drawXBitmap(30, 24, ESPboyLogo, 68, 64, ST77XX_YELLOW);
+  tft.drawXBitmap(30, 24, ESPboyLogo, 68, 64, TFT_YELLOW);
   tft.setTextSize(1);
-  tft.setTextColor(ST77XX_YELLOW);
+  tft.setTextColor(TFT_YELLOW);
   tft.setCursor(42,102);
   tft.print ("FM radio");
 
@@ -253,8 +240,6 @@ void setup() {
   digitalWrite(radioRESETpin, HIGH);
   delay(50);
 
-//global vars init
-  memset(buttonspressed, 0, sizeof(buttonspressed));
   
 //sound init and test
   pinMode(SOUNDpin, OUTPUT);
@@ -280,7 +265,12 @@ void setup() {
 
 //clear TFT
   delay(2000);
-  tft.fillScreen(ST77XX_BLACK);
+  tft.fillScreen(TFT_BLACK);
+
+  if (getKeys()&PAD_ACT || getKeys()&PAD_ESC) OTAobj = new ESPboyOTA(&tft, &mcp);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
 
 //draw radio desktop
   redrawtft();
@@ -290,7 +280,9 @@ void setup() {
 void loop() {
  static unsigned long counter;
   radio.checkRDS();
-  if (checkbuttons()) runButtonsCommand();
+  uint8_t bt = getKeys();
+  Serial.println(bt);
+  if (bt) runButtonsCommand(bt);
   if (millis() > (counter + 2000)){
      counter = millis();
      batVoltageDraw();    
@@ -300,5 +292,5 @@ void loop() {
      }
   }
   
-  delay (20);
+  delay (10);
 } 
