@@ -252,6 +252,15 @@ void setup() {
 //BAT voltage measure init
   pinMode(A0, INPUT);
 
+//clear TFT
+  delay(2000);
+  tft.fillScreen(TFT_BLACK);
+
+  if (getKeys()&PAD_ACT || getKeys()&PAD_ESC) OTAobj = new ESPboyOTA(&tft, &mcp);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
 //radio init  
   radio.init();
   delay (100);
@@ -262,15 +271,6 @@ void setup() {
 //load last radio state from eeprom
   EEPROM.begin(sizeof (esp_eeprom));
   esp_eeprom_load();
-
-//clear TFT
-  delay(2000);
-  tft.fillScreen(TFT_BLACK);
-
-  if (getKeys()&PAD_ACT || getKeys()&PAD_ESC) OTAobj = new ESPboyOTA(&tft, &mcp);
-
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
 
 //draw radio desktop
   redrawtft();
