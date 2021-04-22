@@ -7,7 +7,7 @@
 #include <RDSParser.h>
 #include "ESPboyLogo.h"
 #include <ESP_EEPROM.h>
-#include "ESPboyOTA.h"
+#include <ESP8266WiFi.h>
 
 #define LEDquantity 1
 #define MCP23017address 0 //actually it's 0x20 but in <Adafruit_MCP23017.h> there is (x|0x20)
@@ -255,8 +255,6 @@ void setup() {
 //clear TFT
   delay(2000);
   tft.fillScreen(TFT_BLACK);
-
-  if (getKeys()&PAD_ACT || getKeys()&PAD_ESC) OTAobj = new ESPboyOTA(&tft, &mcp);
 
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
