@@ -8,6 +8,11 @@ Install to your Arduino IDE library https://github.com/pu2clr/SI470X
 
 #include "lib/ESPboyInit.h"
 #include "lib/ESPboyInit.cpp"
+//#include "lib/ESPboyTerminalGUI.h"
+//#include "lib/ESPboyTerminalGUI.cpp"
+//#include "lib/ESPboyOTA2.h"
+//#include "lib/ESPboyOTA2.cpp"
+
 #include <SI470X.h>
 #include <ESP_EEPROM.h>
 
@@ -32,6 +37,8 @@ ESP_EEPROM esp_eeprom;
 static uint8_t esp_eeprom_needsaving = 0;
 
 ESPboyInit myESPboy;
+//ESPboyTerminalGUI *terminalGUIobj = NULL;
+//ESPboyOTA2 *OTA2obj = NULL;
 SI470X radio;
 
 
@@ -158,7 +165,13 @@ void setup() {
 //Init ESPboy
   myESPboy.begin("FM radio");
   Wire.begin();
-  
+
+  //Check OTA2
+//  if (myESPboy.getKeys()&PAD_ACT || myESPboy.getKeys()&PAD_ESC) { 
+//     terminalGUIobj = new ESPboyTerminalGUI(&myESPboy.tft, &myESPboy.mcp);
+//     OTA2obj = new ESPboyOTA2(terminalGUIobj);
+//  }
+
 //detect FMradio module
   pinMode(D8,OUTPUT);
   digitalWrite(D8, HIGH);
