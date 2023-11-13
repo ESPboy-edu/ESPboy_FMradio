@@ -6,7 +6,7 @@ The ESPboy FMradio extension module uses [Si4703 chip](https://aliexpress.ru/who
 
 ![1](pics/pic1.JPEG)
 
-![2](pics/pic1.JPEG)
+![2](pics/pic2.JPEG)
 
 
 ## 1. Buy Si4703 module
