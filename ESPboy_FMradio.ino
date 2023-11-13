@@ -12,7 +12,8 @@ Install to your Arduino IDE library https://github.com/pu2clr/SI470X
 #include <ESP_EEPROM.h>
 
 #define radioSDApin       SDA 
-#define radioRESETpin     3
+#define radioRESETpin     D8
+#define I2C_ADDR 0x10
 
 #define MAX_DELAY_RDS 20
 #define MAX_DELAY_SAVE 2000  
@@ -156,6 +157,18 @@ void setup() {
  
 //Init ESPboy
   myESPboy.begin("FM radio");
+  Wire.begin();
+  
+//detect FMradio module
+  pinMode(D8,OUTPUT);
+  digitalWrite(D8, HIGH);
+  Wire.beginTransmission(I2C_ADDR);
+  if (Wire.endTransmission()){
+    myESPboy.tft.setTextColor(TFT_RED);
+    myESPboy.tft.drawString("FM-radio module", 0, 2);
+    myESPboy.tft.drawString("not found!", 0, 12);
+    while(1)delay(1000);
+  }
 
 //radio init  
   radio.setup(radioRESETpin, radioSDApin);
@@ -202,5 +215,5 @@ void loop() {
    toPrint+="   ";
    myESPboy.tft.drawString(toPrint,5*6,100);
   }
-  delay (20);
+  delay (5);
 } 

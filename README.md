@@ -25,7 +25,7 @@ The ESPboy FMradio extension module uses [Si4703 chip](https://aliexpress.ru/who
 - SDIO >> D2, GPIO4, SDA
 - SCLK >> D1, GPIO5, SCL
 - SEN >> FREE
-- RST >> RST
+- RST >> D8, GPIO15, CS, SS
 - GPIO1 >> FREE
 - GPIO2 >> FREE
 
