@@ -1,6 +1,6 @@
 # ESPboy_FMradio
 
-[Demo video]([https://youtu.be/BxWNkIO8hpA](https://www.youtube.com/watch?v=kW6u79mBG4U))
+[Demo video](https://www.youtube.com/watch?v=kW6u79mBG4U)
 
 The ESPboy FMradio extension module uses [Si4703 chip](https://aliexpress.ru/wholesale?SearchText=Si4703) and turning your ESPboy into portable FM radio.
 
